@@ -1,113 +1,147 @@
-# Save
-Get-Credential | Export-Clixml "$env:USERPROFILE\fritz.cred.xml"
-# Load
+# Load saved credentials
 $cred = Import-Clixml "$env:USERPROFILE\fritz.cred.xml"
 
+# Ignore self-signed FRITZ!Box certificate
+Add-Type @"
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
+
+public class TrustAllCertsPolicy : ICertificatePolicy {
+    public bool CheckValidationResult(
+        ServicePoint srvPoint,
+        X509Certificate certificate,
+        WebRequest request,
+        int certificateProblem) {
+        return true;
+    }
+}
+"@
+
+[System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+
 function ConvertTo-SoapArgumentXml {
-  <#
-  .SYNOPSIS
-    Converts a hashtable of arguments into XML elements for a SOAP request.
-  .PARAMETER Arguments
-    A hashtable containing the arguments to convert. Strings musnt contain XML special characters or spaces. Remember to capitalise the first letter of each word.
-  .EXAMPLE
-    $args = @{ NewIndex = 0 }
-    $xml = ConvertTo-SoapArgumentXml -Arguments $args
-    # $xml will contain:
-    # <NewIndex>0</NewIndex>  
-  .OUTPUTS
-    A string containing the XML representation of the arguments.  
-  #>
-    param (
+    param(
         [hashtable]$Arguments = @{}
     )
 
-    if (-not $Arguments -or $Arguments.Count -eq 0) {
-        return ""
-    }
+    foreach ($key in $Arguments.Keys) {
+        $value = [System.Security.SecurityElement]::Escape(
+            [string]$Arguments[$key]
+        )
 
-    $lines = foreach ($key in $Arguments.Keys) {
-        $escapedkey = [System.Security.SecurityElement]::Escape([string]$key)
-        $escapedValue = [System.Security.SecurityElement]::Escape([string]$Arguments[$key])
-        "<$escapedkey>$escapedValue</$escapedkey>"
+        "<$key>$value</$key>"
     }
-
-    return ($lines -join "`n")
 }
 
 function Invoke-FritzRequest {
-    param (
-        [string]$service,
-        [string]$action,
-        [hashtable]$arguments = @{},
-        [int]$port = 49000,
-        [pscredential]$credential
+    param(
+        [string]$Service,
+        [string]$Action,
+        [hashtable]$Arguments = @{},
+        [int]$Port,
+        [pscredential]$Credential
     )
 
-    $box = "192.168.178.1"
-    $urlPath = $service.ToLower()
-    if ($port -ne 49000) {
-        $url = "https://$box`:$port/upnp/control/$urlPath"
-    } else {
-        $url = "http://$box`:$port/upnp/control/$urlPath"
-    }
+    $url = "https://fritz.box:$Port/upnp/control/$($Service.ToLower())"
 
     $body = @"
-    <?xml version="1.0"?>
-    <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
-    s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-    <s:Body>
-    <u:$action xmlns:u="urn:dslforum-org:service:$service:1">
-    $(ConvertTo-SoapArgumentXml -Arguments $arguments)
-    </u:$action>
-    </s:Body>
-    </s:Envelope>
-"@
-
-    $headers = @{
-    "Content-Type" = 'text/xml; charset="utf-8"'
-    "SOAPAction"   = '"urn:dslforum-org:service:{0}:1#{1}"' -f $service, $action
-    }
-
-    $response = Invoke-WebRequest -Uri $url -Method POST -Body $body -Headers $headers -Credential $credential
-
-    return $response 
-}
-
-function Get-SecurityPort {
-    $response = Invoke-FritzRequest -service "DeviceInfo" -action "GetSecurityPort"
-    [xml]$xml = $response.Content
-    return $xml.Envelope.Body.GetSecurityPortResponse.NewSecurityPort
-}
-
-
-$res = Invoke-FritzRequest -service "Hosts" -action "GetGenericHostEntry" -port (Get-SecurityPort) -credential $cred
-
-
-
-
-
-$max = 50  # HostNumberOfEntries value
-
-for ($i=0; $i -lt $max; $i++) {
-  $bodyEntry = @"
 <?xml version="1.0" encoding="utf-8"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Envelope
+    xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
   <s:Body>
-    <u:GetGenericHostEntry xmlns:u="urn:dslforum-org:service:Hosts:1">
-      <NewIndex>$i</NewIndex>
-    </u:GetGenericHostEntry>
+    <u:$Action xmlns:u="urn:dslforum-org:service:$Service`:1">
+$(ConvertTo-SoapArgumentXml $Arguments)
+    </u:$Action>
   </s:Body>
 </s:Envelope>
 "@
 
-  curl.exe --digest -u "$user`:$pass" `
-    -H "Content-Type: text/xml; charset=utf-8" `
-    -H "SOAPACTION: ""urn:dslforum-org:service:Hosts:1#GetGenericHostEntry""" `
-    --data "$bodyEntry" `
-    "http://$box`:$secureport$hostsControl"
+    $headers = @{
+        SOAPAction = "urn:dslforum-org:service:$Service`:1#$Action"
+    }
+
+    Invoke-WebRequest `
+        -Uri $url `
+        -Method POST `
+        -Credential $Credential `
+        -Headers $headers `
+        -Body $body `
+        -ContentType "text/xml; charset=utf-8"
 }
 
-$securePass = ConvertTo-SecureString $pass -AsPlainText -Force
-$credential = [pscredential]::new($user, $securePass)
+function Get-SecurityPort {
+    param(
+        [pscredential]$Credential
+    )
 
-Invoke-FritzRequest -Service "Hosts" -Action "GetHostNumberOfEntries" -Port (Get-SecurityPort) -Credential (Import-Clixml "$env:USERPROFILE\fritz.cred.xml")
+    $body = @'
+<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+<s:Body>
+<u:GetSecurityPort xmlns:u="urn:dslforum-org:service:DeviceInfo:1"/>
+</s:Body>
+</s:Envelope>
+'@
+
+    $headers = @{
+        SOAPAction = 'urn:dslforum-org:service:DeviceInfo:1#GetSecurityPort'
+    }
+
+    $response = Invoke-WebRequest `
+        -Uri "http://fritz.box:49000/upnp/control/deviceinfo" `
+        -Method POST `
+        -Credential $Credential `
+        -Headers $headers `
+        -Body $body `
+        -ContentType "text/xml; charset=utf-8"
+
+    [xml]$xml = $response.Content
+    $xml.Envelope.Body.GetSecurityPortResponse.NewSecurityPort
+}
+
+# Discover HTTPS port once
+$securePort = Get-SecurityPort -Credential $cred
+
+Write-Host "Security Port: $securePort"
+
+# Get number of hosts
+$response = Invoke-FritzRequest `
+    -Service Hosts `
+    -Action GetHostNumberOfEntries `
+    -Port $securePort `
+    -Credential $cred
+
+[xml]$xml = $response.Content
+
+$count = [int]$xml.Envelope.Body.GetHostNumberOfEntriesResponse.NewHostNumberOfEntries
+
+Write-Host "Hosts: $count"
+
+# Enumerate hosts (FRITZ host indexes are 1-based)
+for ($i = 1; $i -le 10; $i++) {
+    try {
+        $response = Invoke-FritzRequest `
+            -Service Hosts `
+            -Action GetGenericHostEntry `
+            -Arguments @{
+                NewIndex = $i
+            } `
+            -Port $securePort `
+            -Credential $cred
+
+        [xml]$xml = $response.Content
+
+        $hostentry = $xml.Envelope.Body.GetGenericHostEntryResponse
+
+        [pscustomobject]@{
+            Index     = $i
+            HostName  = $hostentry.NewHostName
+            IPAddress = $hostentry.NewIPAddress
+            MAC       = $hostentry.NewMACAddress
+            Active    = $hostentry.NewActive
+        }
+    }
+    catch {
+        Write-Warning "Failed to retrieve host index $i, Error: $($_.Exception.Message)"
+    }
+}
