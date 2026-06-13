@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"bytes"
@@ -113,68 +113,4 @@ func getSecurityPort(client *http.Client) (int, error) {
 		return 0, err
 	}
 	return env.Body.GetSecurityPortResponse.NewSecurityPort, nil
-}
-
-// -------- MAIN --------
-func main() {
-
-	client := createHTTPClient()
-
-	// Step 1: Get Security Port
-	port, err := getSecurityPort(client)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("Security Port: %d\n", port)
-
-	// Step 2: Get number of hosts
-	data, err := invokeFritzRequest(client, "Hosts", "GetHostNumberOfEntries", nil, port)
-	if err != nil {
-		panic(err)
-	}
-
-	var env Envelope
-
-	if err := xml.Unmarshal(data, &env); err != nil {
-		panic(err)
-	}
-
-	count := env.Body.GetHostNumberOfEntriesResponse.NewHostNumberOfEntries
-	fmt.Printf("Hosts: %d\n", count)
-
-	// Step 3: Enumerate hosts (limit to 10 like your script)
-	for i := 1; i <= count; i++ {
-		args := map[string]string{
-			"NewIndex": fmt.Sprintf("%d", i),
-		}
-
-		data, err := invokeFritzRequest(client, "Hosts", "GetGenericHostEntry", args, port)
-		if err != nil {
-			fmt.Printf("Failed index %d: %v\n", i, err)
-			continue
-		}
-
-		var env Envelope
-
-		if err := xml.Unmarshal(data, &env); err != nil {
-			fmt.Printf("XML parse error index %d: %v\n", i, err)
-			continue
-		}
-
-		host := env.Body.GetGenericHostEntryResponse
-		if host == nil {
-			continue
-		}
-
-		if host.NewActive == 0 {
-			continue
-		}
-
-		fmt.Printf("Index: %d\n", i)
-		fmt.Printf("  HostName: %s\n", host.NewHostName)
-		fmt.Printf("  IP: %s\n", host.NewIPAddress)
-		fmt.Printf("  MAC: %s\n", host.NewMACAddress)
-		fmt.Printf("  Active: %d\n\n", host.NewActive)
-	}
 }
