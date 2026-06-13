@@ -1,4 +1,4 @@
-package main
+package captiveportal
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 )
 
 func blockHost(client *http.Client, port int, ip string) error {
-	data, err := invokeFritzRequest(
+	data, err := InvokeFritzRequest(
 		client,
 		"X_AVM-DE_HostFilter",
 		"DisallowWANAccess",
@@ -24,7 +24,7 @@ func blockHost(client *http.Client, port int, ip string) error {
 }
 
 func allowHost(client *http.Client, port int, ip string) error {
-	_, err := invokeFritzRequest(
+	_, err := InvokeFritzRequest(
 		client,
 		"X_AVM-DE_HostFilter",
 		"AllowWANAccess",

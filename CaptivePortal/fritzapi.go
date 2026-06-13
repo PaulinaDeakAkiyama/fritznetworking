@@ -1,4 +1,4 @@
-package internal
+package captiveportal
 
 import (
 	"bytes"
@@ -41,7 +41,7 @@ type GetGenericHostEntryResponse struct {
 }
 
 // -------- HTTP CLIENT (skip TLS verify like PowerShell) --------
-func createHTTPClient() *http.Client {
+func CreateHTTPClient() *http.Client {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // same behavior as your script
 	}
@@ -49,7 +49,7 @@ func createHTTPClient() *http.Client {
 }
 
 // -------- SOAP HELPERS --------
-func buildSoapEnvelope(service, action string, args map[string]string) string {
+func BuildSoapEnvelope(service, action string, args map[string]string) string {
 	argsXML := ""
 	for k, v := range args {
 		argsXML += fmt.Sprintf("<%s>%s</%s>", k, v, k)
@@ -64,9 +64,9 @@ func buildSoapEnvelope(service, action string, args map[string]string) string {
 </s:Envelope>`, action, service, argsXML, action)
 }
 
-func invokeFritzRequest(client *http.Client, service, action string, args map[string]string, port int) ([]byte, error) {
+func InvokeFritzRequest(client *http.Client, service, action string, args map[string]string, port int) ([]byte, error) {
 	url := fmt.Sprintf("https://fritz.box:%d/upnp/control/%s", port, lower(service))
-	body := buildSoapEnvelope(service, action, args)
+	body := BuildSoapEnvelope(service, action, args)
 	req, err := http.NewRequest("POST", url, bytes.NewBufferString(body))
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func lower(s string) string {
 }
 
 // -------- GET SECURITY PORT --------
-func getSecurityPort(client *http.Client) (int, error) {
+func GetSecurityPort(client *http.Client) (int, error) {
 	body := `<?xml version="1.0" encoding="utf-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
 <s:Body>
