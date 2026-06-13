@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Internet Access Request</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 80px;
+        }
+        input, button {
+            padding: 10px;
+            margin: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+<h1>Internet Access Restricted</h1>
+<p>You are currently blocked from internet access.</p>
+<p>Enter how many minutes you would like access:</p>
+<input type="number" id="minutes" min="1" max="180" value="10"/>
+<br>
+<button onclick="requestAccess()">Request Access</button>
+<p id="result"></p>
+<script>
+function requestAccess() {
+    const minutes = document.getElementById("minutes").value;
+    fetch("/request-access", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            duration: parseInt(minutes)
+        })
+    })
+    .then(res => res.text())
+    .then(data => {
+        document.getElementById("result").innerText = data;
+    })
+    .catch(err => {
+        document.getElementById("result").innerText = "Error requesting access";
+    });
+}
+</script>
+</body>
+</html>
