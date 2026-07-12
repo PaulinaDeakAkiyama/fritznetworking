@@ -5,40 +5,10 @@ import (
 	"crypto/tls"
 	"encoding/xml"
 	"fmt"
+	"fritznetworking/internal"
 	"io"
 	"net/http"
 )
-
-// -------- CONFIG --------
-// Replace with your credentials
-const username = "fritzadmin"
-const password = "masteroffritz2002"
-
-// -------- SOAP RESPONSE STRUCTS --------
-type Envelope struct {
-	Body Body `xml:"Body"`
-}
-
-type Body struct {
-	GetSecurityPortResponse        *GetSecurityPortResponse        `xml:"GetSecurityPortResponse"`
-	GetHostNumberOfEntriesResponse *GetHostNumberOfEntriesResponse `xml:"GetHostNumberOfEntriesResponse"`
-	GetGenericHostEntryResponse    *GetGenericHostEntryResponse    `xml:"GetGenericHostEntryResponse"`
-}
-
-type GetSecurityPortResponse struct {
-	NewSecurityPort int `xml:"NewSecurityPort"`
-}
-
-type GetHostNumberOfEntriesResponse struct {
-	NewHostNumberOfEntries int `xml:"NewHostNumberOfEntries"`
-}
-
-type GetGenericHostEntryResponse struct {
-	NewHostName   string `xml:"NewHostName"`
-	NewIPAddress  string `xml:"NewIPAddress"`
-	NewMACAddress string `xml:"NewMACAddress"`
-	NewActive     int    `xml:"NewActive"`
-}
 
 // -------- HTTP CLIENT (skip TLS verify like PowerShell) --------
 func CreateHTTPClient() *http.Client {
@@ -78,7 +48,7 @@ func InvokeFritzRequest(client *http.Client, service, action string, args map[st
 	if err != nil {
 		return nil, err
 	}
-	req.SetBasicAuth(username, password)
+	req.SetBasicAuth(internal.Fritz_login, internal.Fritz_password)
 	req.Header.Set("Content-Type", "text/xml; charset=utf-8")
 	req.Header.Set("SOAPAction", fmt.Sprintf(`"urn:dslforum-org:service:%s:1#%s"`, service, action))
 	resp, err := client.Do(req)
@@ -106,7 +76,7 @@ func GetSecurityPort(client *http.Client) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	req.SetBasicAuth(username, password)
+	req.SetBasicAuth(internal.Fritz_login, internal.Fritz_password)
 	req.Header.Set("Content-Type", "text/xml; charset=utf-8")
 	req.Header.Set("SOAPAction", `"urn:dslforum-org:service:DeviceInfo:1#GetSecurityPort"`)
 	resp, err := client.Do(req)
@@ -115,7 +85,7 @@ func GetSecurityPort(client *http.Client) (int, error) {
 	}
 	defer resp.Body.Close()
 	data, _ := io.ReadAll(resp.Body)
-	var env Envelope
+	var env internal.Envelope
 	if err := xml.Unmarshal(data, &env); err != nil {
 		return 0, err
 	}

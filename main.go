@@ -9,37 +9,6 @@ import (
 	"net/http"
 )
 
-// -------- CONFIG --------
-// Replace with your credentials
-const username = "fritzadmin"
-const password = "masteroffritz2002"
-
-// -------- SOAP RESPONSE STRUCTS --------
-type Envelope struct {
-	Body Body `xml:"Body"`
-}
-
-type Body struct {
-	GetSecurityPortResponse        *GetSecurityPortResponse        `xml:"GetSecurityPortResponse"`
-	GetHostNumberOfEntriesResponse *GetHostNumberOfEntriesResponse `xml:"GetHostNumberOfEntriesResponse"`
-	GetGenericHostEntryResponse    *GetGenericHostEntryResponse    `xml:"GetGenericHostEntryResponse"`
-}
-
-type GetSecurityPortResponse struct {
-	NewSecurityPort int `xml:"NewSecurityPort"`
-}
-
-type GetHostNumberOfEntriesResponse struct {
-	NewHostNumberOfEntries int `xml:"NewHostNumberOfEntries"`
-}
-
-type GetGenericHostEntryResponse struct {
-	NewHostName   string `xml:"NewHostName"`
-	NewIPAddress  string `xml:"NewIPAddress"`
-	NewMACAddress string `xml:"NewMACAddress"`
-	NewActive     int    `xml:"NewActive"`
-}
-
 // -------- HTTP CLIENT (skip TLS verify like PowerShell bc local cert is causing issues) --------
 func createHTTPClient() *http.Client {
 	tr := &http.Transport{
@@ -59,7 +28,7 @@ func main() {
 		panic(err)
 	}
 
-	var env Envelope
+	var env internal.Envelope
 
 	if err := xml.Unmarshal(data, &env); err != nil {
 		panic(err)
@@ -80,7 +49,7 @@ func main() {
 			continue
 		}
 
-		var env Envelope
+		var env internal.Envelope
 
 		if err := xml.Unmarshal(data, &env); err != nil {
 			fmt.Printf("XML parse error index %d: %v\n", i, err)
@@ -104,8 +73,6 @@ func main() {
 	}
 
 	fmt.Println("blocking paulinas phone...")
-
-	err := captivePortal.InvokeFritzRequest(client, "Hosts", "GetSpecificHostEntry", map[string]string{"NewMACAddress": internal.PaulinasMobileIP}, 0)
 
 	err = captivePortal.BlockHost(client, internal.PaulinasMobileIP)
 

@@ -29,14 +29,14 @@ func startPortal(client *http.Client, port int, targetIP string) {
 		}
 
 		// Allow access now
-		err = AllowHost(client, port, targetIP)
+		err = AllowHost(client, targetIP)
 		if err != nil {
 			http.Error(w, "Failed to allow access", 500)
 			return
 		}
 
 		// Schedule re-block (IMPORTANT)
-		UnblockAfter(client, port, targetIP, req.Duration)
+		UnblockAfter(client, targetIP, req.Duration)
 
 		msg := fmt.Sprintf("Access granted for %d minutes", req.Duration)
 		w.Write([]byte(msg))
