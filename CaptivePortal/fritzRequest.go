@@ -10,7 +10,7 @@ import (
 	"net/http"
 )
 
-// -------- HTTP CLIENT (skip TLS verify like PowerShell) --------
+// -------- HTTP CLIENT (skip TLS verify because cert is causing issues) --------
 func CreateHTTPClient() *http.Client {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // same behavior as your script
@@ -59,7 +59,6 @@ func InvokeFritzRequest(client *http.Client, service, action string, args map[st
 	return io.ReadAll(resp.Body)
 }
 
-// simple lowercase helper (to match PowerShell behavior)
 func lower(s string) string {
 	return string(bytes.ToLower([]byte(s)))
 }

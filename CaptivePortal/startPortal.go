@@ -10,7 +10,7 @@ type AccessRequest struct {
 	Duration int `json:"duration"`
 }
 
-func startPortal(client *http.Client, port int, targetIP string) {
+func startPortal(client *http.Client, targetIP string) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "index.html")
 	})
@@ -44,7 +44,7 @@ func startPortal(client *http.Client, port int, targetIP string) {
 
 	// http.HandleFunc("/login", login)
 
-	fmt.Println("Captive portal running on :8080")
-	http.ListenAndServe(":8080", nil)
+	fmt.Println("Captive portal running on 192.168.18.20:8080")
+	http.ListenAndServe("192.168.18.20:8080", nil)
 
 }

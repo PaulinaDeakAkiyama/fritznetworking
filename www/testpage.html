@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>TR-064 Test API</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			max-width: 800px;
+			margin: 40px auto;
+			padding: 0 20px;
+			background: #f4f4f4;
+		}
+		h1 {
+			border-bottom: 2px solid #333;
+			padding-bottom: 10px;
+		}
+		section {
+			background: white;
+			padding: 20px;
+			border-radius: 8px;
+			margin-bottom: 20px;
+		}
+		ul {
+			list-style: none;
+			padding: 0;
+		}
+		li {
+			margin: 10px 0;
+		}
+		a {
+			text-decoration: none;
+			color: #0066cc;
+		}
+		a:hover {
+			text-decoration: underline;
+		}
+		code {
+			background: #eee;
+			padding: 2px 4px;
+			border-radius: 4px;
+		}
+	</style>
+</head>
+<body>
+
+<h1>TR-064 Test API</h1>
+
+<section>
+	<h2>Available Endpoints</h2>
+
+	<ul>
+		<li><a href="/">Home</a> <code>GET /</code></li>
+		<li><a href="/hi">Hi</a> <code>GET /hi</code></li>
+		<li><a href="/request-access">Request Access</a> <code>GET /request-access</code></li>
+		<li><a href="/admin">Admin</a> <code>GET /admin</code></li>
+		<li><a href="/admin/shutdown">Shutdown</a> <code>POST /admin/shutdown</code></li>
+	</ul>
+</section>
+
+<section>
+	<h2>Project Status</h2>
+	<p>Server is running.</p>
+	<p>This page is intended as a simple index while developing the API.</p>
+</section>
+
+</body>
+</html>
