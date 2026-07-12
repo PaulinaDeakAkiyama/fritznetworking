@@ -1,4 +1,4 @@
-package captiveportal
+package captivePortal
 
 import (
 	"encoding/json"
@@ -28,21 +28,23 @@ func startPortal(client *http.Client, port int, targetIP string) {
 			return
 		}
 
-		// ✅ Allow access now
-		err = allowHost(client, port, targetIP)
+		// Allow access now
+		err = AllowHost(client, port, targetIP)
 		if err != nil {
 			http.Error(w, "Failed to allow access", 500)
 			return
 		}
 
-		// ✅ Schedule re-block (IMPORTANT)
-		unblockAfter(client, port, targetIP, req.Duration)
+		// Schedule re-block (IMPORTANT)
+		UnblockAfter(client, port, targetIP, req.Duration)
 
 		msg := fmt.Sprintf("Access granted for %d minutes", req.Duration)
 		w.Write([]byte(msg))
 	})
 
-	fmt.Println("Captive portal running on :80")
-	http.ListenAndServe(":80", nil)
+	// http.HandleFunc("/login", login)
+
+	fmt.Println("Captive portal running on :8080")
+	http.ListenAndServe(":8080", nil)
 
 }

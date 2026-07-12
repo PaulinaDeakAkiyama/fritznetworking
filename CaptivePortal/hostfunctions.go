@@ -1,4 +1,4 @@
-package captiveportal
+package captivePortal
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func blockHost(client *http.Client, port int, ip string) error {
+func BlockHost(client *http.Client, ip string) error {
 	data, err := InvokeFritzRequest(
 		client,
 		"X_AVM-DE_HostFilter",
@@ -14,7 +14,6 @@ func blockHost(client *http.Client, port int, ip string) error {
 		map[string]string{
 			"NewIPv4Adress": ip,
 		},
-		port,
 	)
 	if err != nil {
 		return err
@@ -23,7 +22,7 @@ func blockHost(client *http.Client, port int, ip string) error {
 	return nil
 }
 
-func allowHost(client *http.Client, port int, ip string) error {
+func AllowHost(client *http.Client, ip string) error {
 	_, err := InvokeFritzRequest(
 		client,
 		"X_AVM-DE_HostFilter",
@@ -31,16 +30,15 @@ func allowHost(client *http.Client, port int, ip string) error {
 		map[string]string{
 			"NewIPv4Address": ip,
 		},
-		port,
 	)
 	return err
 }
 
-func unblockAfter(client *http.Client, port int, ip string, durationMinutes int) {
+func UnblockAfter(client *http.Client, ip string, durationMinutes int) {
 	go func() {
 		fmt.Printf("Unblocking %s in %d minutes...\n", ip, durationMinutes)
 		time.Sleep(time.Duration(durationMinutes) * time.Minute)
-		err := allowHost(client, port, ip)
+		err := AllowHost(client, ip)
 		if err != nil {
 			fmt.Printf("Failed to unblock %s: %v\n", ip, err)
 			return
@@ -49,10 +47,10 @@ func unblockAfter(client *http.Client, port int, ip string, durationMinutes int)
 	}()
 }
 
-func reblockAfter(client *http.Client, port int, ip string, durationMinutes int) {
+func ReblockAfter(client *http.Client, ip string, durationMinutes int) {
 	go func() {
 		time.Sleep(time.Duration(durationMinutes) * time.Minute)
-		err := blockHost(client, port, ip)
+		err := BlockHost(client, ip)
 		if err != nil {
 			fmt.Printf("Failed to re-block %s: %v\n", ip, err)
 			return

@@ -1,4 +1,4 @@
-package captiveportal
+package captivePortal
 
 import (
 	"bytes"
@@ -64,7 +64,14 @@ func BuildSoapEnvelope(service, action string, args map[string]string) string {
 </s:Envelope>`, action, service, argsXML, action)
 }
 
-func InvokeFritzRequest(client *http.Client, service, action string, args map[string]string, port int) ([]byte, error) {
+func InvokeFritzRequest(client *http.Client, service, action string, args map[string]string) ([]byte, error) {
+
+	port, err := GetSecurityPort(client)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Security Port: %d\n", port)
+
 	url := fmt.Sprintf("https://fritz.box:%d/upnp/control/%s", port, lower(service))
 	body := BuildSoapEnvelope(service, action, args)
 	req, err := http.NewRequest("POST", url, bytes.NewBufferString(body))

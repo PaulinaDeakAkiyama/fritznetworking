@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+env.go
 
 # Local editor workspace files
 .vscode/

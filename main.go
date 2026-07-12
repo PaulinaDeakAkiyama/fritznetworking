@@ -1,11 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"crypto/tls"
 	"encoding/xml"
 	"fmt"
-	"io"
+	"fritznetworking/captivePortal"
+	"fritznetworking/internal"
 	"net/http"
 )
 
@@ -40,7 +40,7 @@ type GetGenericHostEntryResponse struct {
 	NewActive     int    `xml:"NewActive"`
 }
 
-// -------- HTTP CLIENT (skip TLS verify like PowerShell) --------
+// -------- HTTP CLIENT (skip TLS verify like PowerShell bc local cert is causing issues) --------
 func createHTTPClient() *http.Client {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // same behavior as your script
@@ -48,88 +48,13 @@ func createHTTPClient() *http.Client {
 	return &http.Client{Transport: tr}
 }
 
-// -------- SOAP HELPERS --------
-func buildSoapEnvelope(service, action string, args map[string]string) string {
-	argsXML := ""
-	for k, v := range args {
-		argsXML += fmt.Sprintf("<%s>%s</%s>", k, v, k)
-	}
-	return fmt.Sprintf(`<?xml version="1.0" encoding="utf-8"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
-  <s:Body>
-    <u:%s xmlns:u="urn:dslforum-org:service:%s:1">
-      %s
-    </u:%s>
-  </s:Body>
-</s:Envelope>`, action, service, argsXML, action)
-}
-
-func invokeFritzRequest(client *http.Client, service, action string, args map[string]string, port int) ([]byte, error) {
-	url := fmt.Sprintf("https://fritz.box:%d/upnp/control/%s", port, lower(service))
-	body := buildSoapEnvelope(service, action, args)
-	req, err := http.NewRequest("POST", url, bytes.NewBufferString(body))
-	if err != nil {
-		return nil, err
-	}
-	req.SetBasicAuth(username, password)
-	req.Header.Set("Content-Type", "text/xml; charset=utf-8")
-	req.Header.Set("SOAPAction", fmt.Sprintf(`"urn:dslforum-org:service:%s:1#%s"`, service, action))
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
-}
-
-// simple lowercase helper (to match PowerShell behavior)
-func lower(s string) string {
-	return string(bytes.ToLower([]byte(s)))
-}
-
-// -------- GET SECURITY PORT --------
-func getSecurityPort(client *http.Client) (int, error) {
-	body := `<?xml version="1.0" encoding="utf-8"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
-<s:Body>
-<u:GetSecurityPort xmlns:u="urn:dslforum-org:service:DeviceInfo:1"/>
-</s:Body>
-</s:Envelope>`
-	req, err := http.NewRequest("POST", "http://fritz.box:49000/upnp/control/deviceinfo", bytes.NewBufferString(body))
-	if err != nil {
-		return 0, err
-	}
-	req.SetBasicAuth(username, password)
-	req.Header.Set("Content-Type", "text/xml; charset=utf-8")
-	req.Header.Set("SOAPAction", `"urn:dslforum-org:service:DeviceInfo:1#GetSecurityPort"`)
-	resp, err := client.Do(req)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-	data, _ := io.ReadAll(resp.Body)
-	var env Envelope
-	if err := xml.Unmarshal(data, &env); err != nil {
-		return 0, err
-	}
-	return env.Body.GetSecurityPortResponse.NewSecurityPort, nil
-}
-
 // -------- MAIN --------
 func main() {
 
 	client := createHTTPClient()
 
-	// Step 1: Get Security Port
-	port, err := getSecurityPort(client)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("Security Port: %d\n", port)
-
-	// Step 2: Get number of hosts
-	data, err := invokeFritzRequest(client, "Hosts", "GetHostNumberOfEntries", nil, port)
+	// Get number of hosts
+	data, err := captivePortal.InvokeFritzRequest(client, "Hosts", "GetHostNumberOfEntries", nil)
 	if err != nil {
 		panic(err)
 	}
@@ -143,13 +68,13 @@ func main() {
 	count := env.Body.GetHostNumberOfEntriesResponse.NewHostNumberOfEntries
 	fmt.Printf("Hosts: %d\n", count)
 
-	// Step 3: Enumerate hosts (limit to 10 like your script)
-	for i := 1; i <= count; i++ {
+	// Enumerate hosts
+	for i := 1; i <= 10; i++ {
 		args := map[string]string{
 			"NewIndex": fmt.Sprintf("%d", i),
 		}
 
-		data, err := invokeFritzRequest(client, "Hosts", "GetGenericHostEntry", args, port)
+		data, err := captivePortal.InvokeFritzRequest(client, "Hosts", "GetGenericHostEntry", args)
 		if err != nil {
 			fmt.Printf("Failed index %d: %v\n", i, err)
 			continue
@@ -177,4 +102,11 @@ func main() {
 		fmt.Printf("  MAC: %s\n", host.NewMACAddress)
 		fmt.Printf("  Active: %d\n\n", host.NewActive)
 	}
+
+	fmt.Println("blocking paulinas phone...")
+
+	err := captivePortal.InvokeFritzRequest(client, "Hosts", "GetSpecificHostEntry", map[string]string{"NewMACAddress": internal.PaulinasMobileIP}, 0)
+
+	err = captivePortal.BlockHost(client, internal.PaulinasMobileIP)
+
 }
